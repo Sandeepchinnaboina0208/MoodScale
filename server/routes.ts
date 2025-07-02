@@ -284,8 +284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Spotify OAuth callback
-  app.get("/api/spotify/callback", async (req, res) => {
+  // Spotify OAuth callback - Updated to match your redirect URI
+  app.get("/callback", async (req, res) => {
     try {
       const { code, state } = req.query;
       
@@ -297,10 +297,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(`/?spotify=error&message=invalid_state`);
       }
 
-      // Determine redirect URI based on environment
-      const protocol = req.get('x-forwarded-proto') || req.protocol;
-      const host = req.get('host');
-      const redirectUri = `${protocol}://${host}/api/spotify/callback`;
+      // Use the exact redirect URI you set in Spotify
+      const redirectUri = "https://localhost:5000/callback";
       
       const tokenData = await spotifyService.exchangeCodeForToken(code as string, redirectUri);
       
@@ -326,10 +324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get Spotify auth URL
   app.get("/api/spotify/auth-url", (req, res) => {
     try {
-      // Determine redirect URI based on environment
-      const protocol = req.get('x-forwarded-proto') || req.protocol;
-      const host = req.get('host');
-      const redirectUri = `${protocol}://${host}/api/spotify/callback`;
+      // Use the exact redirect URI you set in Spotify
+      const redirectUri = "https://localhost:5000/callback";
       
       const authUrl = spotifyService.getAuthUrl(redirectUri);
       res.json({ authUrl });
