@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Sparkles, Heart, CheckCircle } from "lucide-react";
+import { BarChart3, Sparkles, Heart, CheckCircle, Loader2 } from "lucide-react";
 import { FaSpotify } from "react-icons/fa";
 import { useToast } from "@/hooks/use-toast";
-import { getSpotifyAuthUrl } from "@/lib/spotify";
+import { connectSpotify } from "@/lib/spotify";
 
 export default function SpotifyIntegration() {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -18,6 +18,13 @@ export default function SpotifyIntegration() {
     spotifyId?: string;
   }>({
     queryKey: [`/api/spotify/status/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/spotify/status/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Spotify status');
+      }
+      return response.json();
+    },
   });
 
   // Check for OAuth callback success/error in URL
@@ -47,15 +54,13 @@ export default function SpotifyIntegration() {
   const handleConnectSpotify = async () => {
     setIsConnecting(true);
     try {
-      const authUrl = await getSpotifyAuthUrl();
-      window.location.href = authUrl;
+      await connectSpotify();
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to connect to Spotify. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsConnecting(false);
     }
   };
@@ -128,10 +133,19 @@ export default function SpotifyIntegration() {
           <Button 
             onClick={handleConnectSpotify}
             disabled={isConnecting}
-            className="bg-spotify-green text-white px-8 py-4 text-lg font-medium hover:bg-green-600 transform hover:scale-105 transition-all"
+            className="bg-spotify-green text-white px-8 py-4 text-lg font-medium hover:bg-green-600 transform hover:scale-105 transition-all disabled:transform-none disabled:opacity-50"
           >
-            <FaSpotify className="mr-3" />
-            {isConnecting ? "Connecting..." : "Connect Spotify Account"}
+            {isConnecting ? (
+              <>
+                <Loader2 className="mr-3 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <FaSpotify className="mr-3" />
+                Connect Spotify Account
+              </>
+            )}
           </Button>
         )}
       </div>
