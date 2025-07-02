@@ -54,7 +54,7 @@ export class SpotifyService {
 
     const data = await response.json();
     this.accessToken = data.access_token;
-    return this.accessToken;
+    return this.accessToken || "";
   }
 
   async searchTracks(query: string, limit = 20): Promise<SpotifyTrack[]> {
@@ -68,6 +68,25 @@ export class SpotifyService {
         },
       }
     );
+
+    const data = await response.json();
+    return data.tracks?.items || [];
+  }
+
+  async searchTracksWithUserToken(query: string, userToken: string, limit = 20): Promise<SpotifyTrack[]> {
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
+      {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // Fall back to app token if user token fails
+      return this.searchTracks(query, limit);
+    }
 
     const data = await response.json();
     return data.tracks?.items || [];
@@ -147,6 +166,20 @@ export class SpotifyService {
 
     const data = await response.json();
     return data.items?.map((item: any) => item.track) || [];
+  }
+
+  async getUserProfile(userToken: string): Promise<{ id: string; display_name: string; email: string }> {
+    const response = await fetch("https://api.spotify.com/v1/me", {
+      headers: {
+        Authorization: `Bearer ${userToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
   }
 
   getAuthUrl(redirectUri: string): string {

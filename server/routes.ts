@@ -80,13 +80,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/music/search", async (req, res) => {
     try {
       const query = req.query.q as string;
+      const userId = req.query.userId as string;
       const limit = parseInt(req.query.limit as string) || 20;
       
       if (!query) {
         return res.status(400).json({ error: "Query parameter is required" });
       }
       
-      const tracks = await spotifyService.searchTracks(query, limit);
+      // Use user's Spotify token if available for personalized results
+      let tracks;
+      if (userId) {
+        const user = await storage.getUser(parseInt(userId));
+        if (user?.spotifyAccessToken) {
+          tracks = await spotifyService.searchTracksWithUserToken(query, user.spotifyAccessToken, limit);
+        } else {
+          tracks = await spotifyService.searchTracks(query, limit);
+        }
+      } else {
+        tracks = await spotifyService.searchTracks(query, limit);
+      }
+      
       res.json(tracks);
     } catch (error) {
       res.status(500).json({ error: "Failed to search tracks" });
@@ -283,11 +296,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tokenData = await spotifyService.exchangeCodeForToken(code as string, redirectUri);
       
-      // In a real app, you'd store these tokens for the user
-      // For now, just return them
-      res.json(tokenData);
+      // Get user profile from Spotify
+      const userProfile = await spotifyService.getUserProfile(tokenData.access_token);
+      
+      // Update user with Spotify credentials (using userId 1 for demo)
+      const userId = 1;
+      await storage.updateUser(userId, {
+        spotifyId: userProfile.id,
+        spotifyAccessToken: tokenData.access_token,
+        spotifyRefreshToken: tokenData.refresh_token,
+      });
+
+      // Redirect to dashboard with success message
+      res.redirect(`/?spotify=connected`);
     } catch (error) {
-      res.status(500).json({ error: "Failed to exchange code for token" });
+      console.error("Spotify callback error:", error);
+      res.redirect(`/?spotify=error`);
     }
   });
 
@@ -296,6 +320,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const redirectUri = `${req.protocol}://${req.get("host")}/api/spotify/callback`;
     const authUrl = spotifyService.getAuthUrl(redirectUri);
     res.json({ authUrl });
+  });
+
+  // Get user's Spotify playlists
+  app.get("/api/spotify/playlists/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(parseInt(userId));
+      
+      if (!user || !user.spotifyAccessToken) {
+        return res.status(401).json({ error: "Spotify not connected" });
+      }
+
+      const playlists = await spotifyService.getUserPlaylists(user.spotifyAccessToken);
+      res.json(playlists);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get playlists" });
+    }
+  });
+
+  // Get user's Spotify connection status
+  app.get("/api/spotify/status/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(parseInt(userId));
+      
+      res.json({ 
+        connected: !!(user?.spotifyAccessToken),
+        spotifyId: user?.spotifyId 
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get Spotify status" });
+    }
   });
 
   const httpServer = createServer(app);

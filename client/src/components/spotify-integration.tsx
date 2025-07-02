@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Sparkles, Heart } from "lucide-react";
+import { BarChart3, Sparkles, Heart, CheckCircle } from "lucide-react";
 import { FaSpotify } from "react-icons/fa";
 import { useToast } from "@/hooks/use-toast";
 import { getSpotifyAuthUrl } from "@/lib/spotify";
@@ -9,6 +10,39 @@ import { getSpotifyAuthUrl } from "@/lib/spotify";
 export default function SpotifyIntegration() {
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
+  const userId = 1; // Demo user ID
+
+  // Check Spotify connection status
+  const { data: spotifyStatus, refetch: refetchStatus } = useQuery<{
+    connected: boolean;
+    spotifyId?: string;
+  }>({
+    queryKey: [`/api/spotify/status/${userId}`],
+  });
+
+  // Check for OAuth callback success/error in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const spotifyStatus = urlParams.get('spotify');
+    
+    if (spotifyStatus === 'connected') {
+      toast({
+        title: "Success!",
+        description: "Your Spotify account has been connected successfully.",
+      });
+      refetchStatus();
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (spotifyStatus === 'error') {
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect your Spotify account. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast, refetchStatus]);
 
   const handleConnectSpotify = async () => {
     setIsConnecting(true);
@@ -77,14 +111,29 @@ export default function SpotifyIntegration() {
       </div>
 
       <div className="text-center">
-        <Button 
-          onClick={handleConnectSpotify}
-          disabled={isConnecting}
-          className="bg-spotify-green text-white px-8 py-4 text-lg font-medium hover:bg-green-600 transform hover:scale-105 transition-all"
-        >
-          <FaSpotify className="mr-3" />
-          {isConnecting ? "Connecting..." : "Connect Spotify Account"}
-        </Button>
+        {spotifyStatus && spotifyStatus.connected ? (
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex items-center text-spotify-green text-lg font-medium">
+              <CheckCircle className="mr-2" />
+              Connected to Spotify
+            </div>
+            <p className="text-text-secondary">
+              Spotify ID: {spotifyStatus.spotifyId}
+            </p>
+            <p className="text-sm text-text-secondary">
+              Your music preferences will now enhance mood recommendations!
+            </p>
+          </div>
+        ) : (
+          <Button 
+            onClick={handleConnectSpotify}
+            disabled={isConnecting}
+            className="bg-spotify-green text-white px-8 py-4 text-lg font-medium hover:bg-green-600 transform hover:scale-105 transition-all"
+          >
+            <FaSpotify className="mr-3" />
+            {isConnecting ? "Connecting..." : "Connect Spotify Account"}
+          </Button>
+        )}
       </div>
     </section>
   );

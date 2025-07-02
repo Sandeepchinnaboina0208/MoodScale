@@ -57,7 +57,7 @@ export default function MusicRecommendations({ userId }: MusicRecommendationsPro
     
     setIsSearching(true);
     try {
-      const tracks = await searchSpotifyTracks(searchQuery, 5);
+      const tracks = await searchSpotifyTracks(searchQuery, 5, userId);
       setSearchResults(tracks);
     } catch (error) {
       toast({

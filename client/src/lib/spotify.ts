@@ -20,8 +20,12 @@ export interface MusicRecommendation {
   track?: SpotifyTrack;
 }
 
-export async function searchSpotifyTracks(query: string, limit = 20): Promise<SpotifyTrack[]> {
-  const response = await fetch(`/api/music/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+export async function searchSpotifyTracks(query: string, limit = 20, userId?: number): Promise<SpotifyTrack[]> {
+  const url = userId 
+    ? `/api/music/search?q=${encodeURIComponent(query)}&limit=${limit}&userId=${userId}`
+    : `/api/music/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+    
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to search tracks');
   }
