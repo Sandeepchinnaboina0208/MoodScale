@@ -1,6 +1,4 @@
-import dotenv from "dotenv";
 import fetch from "node-fetch";
-dotenv.config();
 
 // Interfaces to define the structure of Spotify data
 export interface SpotifyTrack {
