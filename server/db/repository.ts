@@ -26,7 +26,33 @@ import {
 } from "./validators";
 import { encrypt, decrypt, checkRateLimit } from "./security";
 
-export class DatabaseRepository {
+export interface IStorage {
+  // User methods
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Mood entry methods
+  getMoodEntries(userId: number, limit?: number): Promise<MoodEntry[]>;
+  getMoodEntry(id: number): Promise<MoodEntry | undefined>;
+  createMoodEntry(entry: InsertMoodEntry): Promise<MoodEntry>;
+  getMoodTrends(userId: number, days: number): Promise<MoodEntry[]>;
+  
+  // Music analysis methods
+  getMusicAnalysis(userId: number, limit?: number): Promise<MusicAnalysis[]>;
+  createMusicAnalysis(analysis: InsertMusicAnalysis): Promise<MusicAnalysis>;
+  
+  // Recommendation methods
+  getRecommendations(userId: number, limit?: number): Promise<Recommendation[]>;
+  createRecommendation(recommendation: InsertRecommendation): Promise<Recommendation>;
+  
+  // Personality insight methods
+  getLatestPersonalityInsight(userId: number): Promise<PersonalityInsight | undefined>;
+  createPersonalityInsight(insight: InsertPersonalityInsight): Promise<PersonalityInsight>;
+}
+
+export class DatabaseRepository implements IStorage {
   // User operations
   async createUser(userData: InsertUser): Promise<User> {
     const validated = userValidation.create.parse(userData);
@@ -38,17 +64,19 @@ export class DatabaseRepository {
     };
     
     try {
-      const [user] = await db.insert(users).values(sanitized).returning();
-      return user;
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('unique')) {
+      const [user] = await db.insert(users).values(sanitized).$returningId();
+      const createdUser = await this.getUser(user.id);
+      if (!createdUser) throw new Error('Failed to retrieve created user');
+      return createdUser;
+    } catch (error: any) {
+      if (error.code === 'ER_DUP_ENTRY') {
         throw new Error('Username already exists');
       }
       throw new Error('Failed to create user');
     }
   }
 
-  async getUserById(id: number): Promise<User | undefined> {
+  async getUser(id: number): Promise<User | undefined> {
     try {
       const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
       return user;
@@ -88,11 +116,11 @@ export class DatabaseRepository {
     }
     
     try {
-      const [user] = await db.update(users)
+      await db.update(users)
         .set(sanitizedUpdates)
-        .where(eq(users.id, id))
-        .returning();
-      return user;
+        .where(eq(users.id, id));
+      
+      return await this.getUser(id);
     } catch (error) {
       console.error('Error updating user:', error);
       return undefined;
@@ -116,11 +144,23 @@ export class DatabaseRepository {
     };
     
     try {
-      const [entry] = await db.insert(moodEntries).values(sanitized).returning();
+      const [result] = await db.insert(moodEntries).values(sanitized).$returningId();
+      const entry = await this.getMoodEntry(result.id);
+      if (!entry) throw new Error('Failed to retrieve created mood entry');
       return entry;
     } catch (error) {
       console.error('Error creating mood entry:', error);
       throw new Error('Failed to create mood entry');
+    }
+  }
+
+  async getMoodEntry(id: number): Promise<MoodEntry | undefined> {
+    try {
+      const [entry] = await db.select().from(moodEntries).where(eq(moodEntries.id, id)).limit(1);
+      return entry;
+    } catch (error) {
+      console.error('Error fetching mood entry:', error);
+      return undefined;
     }
   }
 
@@ -175,11 +215,23 @@ export class DatabaseRepository {
     };
     
     try {
-      const [analysis] = await db.insert(musicAnalysis).values(sanitized).returning();
+      const [result] = await db.insert(musicAnalysis).values(sanitized).$returningId();
+      const analysis = await this.getMusicAnalysisById(result.id);
+      if (!analysis) throw new Error('Failed to retrieve created music analysis');
       return analysis;
     } catch (error) {
       console.error('Error creating music analysis:', error);
       throw new Error('Failed to create music analysis');
+    }
+  }
+
+  async getMusicAnalysisById(id: number): Promise<MusicAnalysis | undefined> {
+    try {
+      const [analysis] = await db.select().from(musicAnalysis).where(eq(musicAnalysis.id, id)).limit(1);
+      return analysis;
+    } catch (error) {
+      console.error('Error fetching music analysis:', error);
+      return undefined;
     }
   }
 
@@ -199,11 +251,23 @@ export class DatabaseRepository {
   // Recommendation operations
   async createRecommendation(recData: InsertRecommendation): Promise<Recommendation> {
     try {
-      const [recommendation] = await db.insert(recommendations).values(recData).returning();
+      const [result] = await db.insert(recommendations).values(recData).$returningId();
+      const recommendation = await this.getRecommendationById(result.id);
+      if (!recommendation) throw new Error('Failed to retrieve created recommendation');
       return recommendation;
     } catch (error) {
       console.error('Error creating recommendation:', error);
       throw new Error('Failed to create recommendation');
+    }
+  }
+
+  async getRecommendationById(id: number): Promise<Recommendation | undefined> {
+    try {
+      const [recommendation] = await db.select().from(recommendations).where(eq(recommendations.id, id)).limit(1);
+      return recommendation;
+    } catch (error) {
+      console.error('Error fetching recommendation:', error);
+      return undefined;
     }
   }
 
@@ -223,11 +287,23 @@ export class DatabaseRepository {
   // Personality insights operations
   async createPersonalityInsight(insightData: InsertPersonalityInsight): Promise<PersonalityInsight> {
     try {
-      const [insight] = await db.insert(personalityInsights).values(insightData).returning();
+      const [result] = await db.insert(personalityInsights).values(insightData).$returningId();
+      const insight = await this.getPersonalityInsightById(result.id);
+      if (!insight) throw new Error('Failed to retrieve created personality insight');
       return insight;
     } catch (error) {
       console.error('Error creating personality insight:', error);
       throw new Error('Failed to create personality insight');
+    }
+  }
+
+  async getPersonalityInsightById(id: number): Promise<PersonalityInsight | undefined> {
+    try {
+      const [insight] = await db.select().from(personalityInsights).where(eq(personalityInsights.id, id)).limit(1);
+      return insight;
+    } catch (error) {
+      console.error('Error fetching personality insight:', error);
+      return undefined;
     }
   }
 

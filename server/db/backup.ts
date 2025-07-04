@@ -42,18 +42,19 @@ export class DatabaseBackup {
     const filepath = path.join(this.config.backupPath, filename);
 
     try {
-      console.log('Creating database backup...');
+      console.log('Creating MySQL database backup...');
       
-      // Use pg_dump for PostgreSQL backup
-      const databaseUrl = process.env.DATABASE_URL;
-      if (!databaseUrl) {
-        throw new Error('DATABASE_URL not configured');
-      }
+      // MySQL connection details
+      const host = process.env.DB_HOST || 'localhost';
+      const port = process.env.DB_PORT || '3306';
+      const user = process.env.DB_USER || 'root';
+      const password = process.env.DB_PASSWORD || 'Sandeep@2004';
+      const database = process.env.DB_NAME || 'MoodScale';
 
-      let command = `pg_dump "${databaseUrl}" > "${filepath}"`;
+      let command = `mysqldump -h ${host} -P ${port} -u ${user} -p${password} ${database} > "${filepath}"`;
       
       if (this.config.compression) {
-        command = `pg_dump "${databaseUrl}" | gzip > "${filepath}.gz"`;
+        command = `mysqldump -h ${host} -P ${port} -u ${user} -p${password} ${database} | gzip > "${filepath}.gz"`;
       }
 
       await execAsync(command);
@@ -76,17 +77,18 @@ export class DatabaseBackup {
     }
 
     try {
-      console.log('Restoring database backup...');
+      console.log('Restoring MySQL database backup...');
       
-      const databaseUrl = process.env.DATABASE_URL;
-      if (!databaseUrl) {
-        throw new Error('DATABASE_URL not configured');
-      }
+      const host = process.env.DB_HOST || 'localhost';
+      const port = process.env.DB_PORT || '3306';
+      const user = process.env.DB_USER || 'root';
+      const password = process.env.DB_PASSWORD || 'Sandeep@2004';
+      const database = process.env.DB_NAME || 'MoodScale';
 
-      let command = `psql "${databaseUrl}" < "${backupPath}"`;
+      let command = `mysql -h ${host} -P ${port} -u ${user} -p${password} ${database} < "${backupPath}"`;
       
       if (backupPath.endsWith('.gz')) {
-        command = `gunzip -c "${backupPath}" | psql "${databaseUrl}"`;
+        command = `gunzip -c "${backupPath}" | mysql -h ${host} -P ${port} -u ${user} -p${password} ${database}`;
       }
 
       await execAsync(command);

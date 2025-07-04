@@ -4,7 +4,7 @@ dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runMigrations } from "./db/migrations";
+import { runMigrations, createSampleData } from "./db/migrations";
 import { dbMonitor } from "./db/monitoring";
 import { backupManager } from "./db/backup";
 import { 
@@ -58,13 +58,16 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize database
-    log("🔄 Running database migrations...");
+    // Initialize MySQL database
+    log("🔄 Initializing MySQL database...");
     const migrationResult = await runMigrations();
     if (migrationResult.success) {
-      log("✅ Database migrations completed");
+      log("✅ MySQL database initialized successfully");
+      
+      // Create sample data for demo
+      await createSampleData();
     } else {
-      log(`⚠️ Migration warning: ${migrationResult.error}`);
+      log(`⚠️ Database initialization warning: ${migrationResult.error}`);
     }
 
     // Start database monitoring in production
@@ -108,7 +111,7 @@ app.use((req, res, next) => {
       reusePort: true,
     }, () => {
       log(`🚀 MoodScale server running on port ${port}`);
-      log(`📊 Database: ${process.env.NODE_ENV === 'production' ? 'PostgreSQL' : 'Development'}`);
+      log(`🗄️ Database: MySQL (${process.env.DB_NAME || 'MoodScale'})`);
       log(`🔒 Security: Rate limiting, input validation, encryption enabled`);
       log(`💾 Backups: ${process.env.BACKUP_ENABLED === 'true' ? 'Enabled' : 'Disabled'}`);
     });

@@ -1,7 +1,4 @@
-import { migrate } from "drizzle-orm/neon-http/migrator";
-import { db } from "./connection";
-import fs from "fs";
-import path from "path";
+import { db, initializeDatabase } from "./connection";
 
 export interface MigrationResult {
   success: boolean;
@@ -11,22 +8,15 @@ export interface MigrationResult {
 
 export async function runMigrations(): Promise<MigrationResult> {
   try {
-    const migrationsFolder = path.join(process.cwd(), "migrations");
+    console.log("🔄 Running MySQL database initialization...");
     
-    // Check if migrations folder exists
-    if (!fs.existsSync(migrationsFolder)) {
-      console.log("No migrations folder found, skipping migrations");
-      return { success: true, migrationsRun: 0 };
-    }
-
-    console.log("Running database migrations...");
+    // Initialize database and create tables
+    await initializeDatabase();
     
-    await migrate(db, { migrationsFolder });
-    
-    console.log("Migrations completed successfully");
+    console.log("✅ Database initialization completed successfully");
     return { success: true, migrationsRun: 1 };
   } catch (error) {
-    console.error("Migration failed:", error);
+    console.error("❌ Database initialization failed:", error);
     return { 
       success: false, 
       migrationsRun: 0, 
@@ -35,28 +25,43 @@ export async function runMigrations(): Promise<MigrationResult> {
   }
 }
 
-export async function createMigration(name: string): Promise<void> {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `${timestamp}_${name}.sql`;
-  const migrationsDir = path.join(process.cwd(), "migrations");
-  
-  if (!fs.existsSync(migrationsDir)) {
-    fs.mkdirSync(migrationsDir, { recursive: true });
+export async function createSampleData(): Promise<void> {
+  try {
+    console.log("🔄 Creating sample data...");
+    
+    // Check if sample user already exists
+    const [existingUser] = await db.execute('SELECT id FROM users WHERE username = ? LIMIT 1', ['demo_user']);
+    
+    if (!existingUser) {
+      // Create sample user
+      await db.execute(
+        'INSERT INTO users (username, created_at) VALUES (?, NOW())',
+        ['demo_user']
+      );
+      
+      // Get the created user ID
+      const [userResult] = await db.execute('SELECT LAST_INSERT_ID() as id');
+      const userId = userResult[0].id;
+      
+      // Create sample mood entries
+      const sampleMoods = [
+        [userId, 8, JSON.stringify(['happy', 'energetic']), 'Great day at work!'],
+        [userId, 6, JSON.stringify(['calm', 'peaceful']), 'Relaxing evening'],
+        [userId, 7, JSON.stringify(['happy']), null]
+      ];
+      
+      for (const mood of sampleMoods) {
+        await db.execute(
+          'INSERT INTO mood_entries (user_id, mood_score, emotions, notes, created_at) VALUES (?, ?, ?, ?, NOW())',
+          mood
+        );
+      }
+      
+      console.log("✅ Sample data created successfully");
+    } else {
+      console.log("ℹ️ Sample data already exists");
+    }
+  } catch (error) {
+    console.error("❌ Failed to create sample data:", error);
   }
-  
-  const migrationPath = path.join(migrationsDir, filename);
-  const template = `-- Migration: ${name}
--- Created: ${new Date().toISOString()}
-
--- Add your SQL statements here
--- Example:
--- CREATE TABLE example (
---   id SERIAL PRIMARY KEY,
---   name VARCHAR(255) NOT NULL,
---   created_at TIMESTAMP DEFAULT NOW()
--- );
-`;
-  
-  fs.writeFileSync(migrationPath, template);
-  console.log(`Migration created: ${migrationPath}`);
 }
