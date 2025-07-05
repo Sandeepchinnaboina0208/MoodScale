@@ -50,6 +50,20 @@ export async function analyzeTrack(trackId: string, userId: number) {
 
 export async function getSpotifyAuthUrl(): Promise<string> {
   const response = await fetch('/api/spotify/auth-url');
+  if (!response.ok) {
+    throw new Error('Failed to get Spotify auth URL');
+  }
   const data = await response.json();
   return data.authUrl;
+}
+
+export async function connectSpotify(): Promise<void> {
+  try {
+    const authUrl = await getSpotifyAuthUrl();
+    // Redirect to Spotify authorization
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Failed to connect to Spotify:', error);
+    throw error;
+  }
 }

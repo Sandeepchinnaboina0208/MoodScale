@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Music, Plus, User, Brain, Clock, ChartLine } from "lucide-react";
-import { FaSpotify } from "react-icons/fa";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -43,10 +42,6 @@ export default function Dashboard() {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <Button className="bg-spotify-green text-white hover:bg-green-600">
-                <FaSpotify className="mr-2" />
-                Connect Spotify
-              </Button>
               <div className="w-8 h-8 bg-gradient-to-r from-mood-happy to-mood-calm rounded-full flex items-center justify-center">
                 <User className="w-4 h-4" />
               </div>

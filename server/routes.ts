@@ -284,16 +284,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Spotify OAuth callback
-  app.get("/api/spotify/callback", async (req, res) => {
+  // Spotify OAuth callback - Updated to match your redirect URI
+  app.get("/callback", async (req, res) => {
     try {
-      const { code } = req.query;
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/spotify/callback`;
+      const { code, state } = req.query;
       
       if (!code) {
-        return res.status(400).json({ error: "Authorization code is required" });
+        return res.redirect(`/?spotify=error&message=no_code`);
       }
 
+      if (state !== 'moodscale-auth') {
+        return res.redirect(`/?spotify=error&message=invalid_state`);
+      }
+
+      // Use the exact redirect URI you set in Spotify
+      const redirectUri = "https://localhost:5000/callback";
+      
       const tokenData = await spotifyService.exchangeCodeForToken(code as string, redirectUri);
       
       // Get user profile from Spotify
@@ -311,15 +317,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.redirect(`/?spotify=connected`);
     } catch (error) {
       console.error("Spotify callback error:", error);
-      res.redirect(`/?spotify=error`);
+      res.redirect(`/?spotify=error&message=callback_failed`);
     }
   });
 
   // Get Spotify auth URL
   app.get("/api/spotify/auth-url", (req, res) => {
-    const redirectUri = `${req.protocol}://${req.get("host")}/api/spotify/callback`;
-    const authUrl = spotifyService.getAuthUrl(redirectUri);
-    res.json({ authUrl });
+    try {
+      // Use the exact redirect URI you set in Spotify
+      const redirectUri = "https://localhost:5000/callback";
+      
+      const authUrl = spotifyService.getAuthUrl(redirectUri);
+      res.json({ authUrl });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate auth URL" });
+    }
   });
 
   // Get user's Spotify playlists
